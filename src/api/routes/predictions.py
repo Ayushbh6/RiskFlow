@@ -11,21 +11,21 @@ import uuid
 import time
 import logging
 
-from ..schemas.prediction import (
+from api.schemas.prediction import (
     CreditRiskRequest, 
     CreditRiskResponse, 
     BatchPredictionRequest,
     BatchPredictionResponse,
     PredictionStatus
 )
-from ...models.model_serving import get_model_server, predict_credit_risk
-from ...data.validators import validate_real_time_data
-from ...data.preprocessing import CreditRiskFeatureEngineer
-from ...utils.database import db_manager
-from ...config.settings import get_settings
-from ...config.logging_config import get_logger
-from ...utils.exceptions import APIError, ModelNotFoundError, InvalidInputError
-from ...utils.helpers import get_utc_now
+from models.model_serving import get_model_server, predict_credit_risk
+from data.validators import validate_real_time_data
+from data.preprocessing import CreditRiskFeatureEngineer
+from utils.database import db_manager
+from config.settings import get_settings
+from config.logging_config import get_logger
+from utils.exceptions import APIError, ModelNotFoundError, InvalidInputError
+from utils.helpers import get_utc_now
 
 logger = get_logger(__name__)
 settings = get_settings()
@@ -49,11 +49,10 @@ async def predict_single_application(
     try:
         logger.info(f"Processing credit risk prediction for request {request_id}")
         
-        # Convert request to dict for processing
-        credit_data = request.dict()
-        credit_data['request_id'] = request_id
+        # Convert request to dict for processing, excluding unset values
+        credit_data = request.dict(exclude_unset=True)
         
-        # Validate input data
+        # Validate input data first (before adding extra fields)
         validation_result = validate_real_time_data([credit_data], 'credit')
         if not validation_result['is_valid']:
             logger.warning(f"Invalid credit data for request {request_id}: {validation_result['errors']}")
@@ -66,11 +65,14 @@ async def predict_single_application(
                 }
             )
         
+        # Add request_id after validation for tracking
+        credit_data['request_id'] = request_id
+        
         # Get model server and make prediction
         model_server = get_model_server()
         prediction_result = model_server.predict(
             credit_data,
-            use_cache=True,
+            use_cache=False,  # Disable caching for real-time predictions
             log_prediction=True
         )
         
@@ -408,7 +410,7 @@ async def _log_api_usage(
 
 # Warm up model server on module load
 try:
-    from ...models.model_serving import warm_up_model_server
+    from models.model_serving import warm_up_model_server
     warm_up_model_server()
 except Exception as e:
     logger.warning(f"Model server warmup failed: {str(e)}")

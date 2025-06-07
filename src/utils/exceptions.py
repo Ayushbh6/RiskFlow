@@ -89,6 +89,132 @@ class PredictionException(RiskFlowException):
         )
 
 
+class DataIngestionError(RiskFlowException):
+    """Exception raised when data ingestion fails."""
+    
+    def __init__(self, message: str, source: Optional[str] = None, details: Optional[Dict[str, Any]] = None):
+        base_details = details or {}
+        base_details["data_source"] = source
+        super().__init__(
+            message=message,
+            error_type="DATA_INGESTION_ERROR",
+            status_code=503,
+            details=base_details
+        )
+
+
+class ModelError(RiskFlowException):
+    """Exception raised when model operations fail."""
+    
+    def __init__(self, message: str, model_name: Optional[str] = None, details: Optional[Dict[str, Any]] = None):
+        base_details = details or {}
+        base_details["model_name"] = model_name
+        super().__init__(
+            message=message,
+            error_type="MODEL_ERROR",
+            status_code=500,
+            details=base_details
+        )
+
+
+class APIError(RiskFlowException):
+    """Exception raised for API-specific errors."""
+    
+    def __init__(self, message: str, endpoint: Optional[str] = None, details: Optional[Dict[str, Any]] = None):
+        base_details = details or {}
+        base_details["endpoint"] = endpoint
+        super().__init__(
+            message=message,
+            error_type="API_ERROR",
+            status_code=500,
+            details=base_details
+        )
+
+
+class ModelNotFoundError(RiskFlowException):
+    """Exception raised when a model is not found."""
+    
+    def __init__(self, message: str, model_name: Optional[str] = None, details: Optional[Dict[str, Any]] = None):
+        base_details = details or {}
+        base_details["model_name"] = model_name
+        super().__init__(
+            message=message,
+            error_type="MODEL_NOT_FOUND_ERROR",
+            status_code=404,
+            details=base_details
+        )
+
+
+class InvalidInputError(RiskFlowException):
+    """Exception raised for invalid input data."""
+    
+    def __init__(self, message: str, input_data: Optional[Dict] = None, details: Optional[Dict[str, Any]] = None):
+        base_details = details or {}
+        base_details["input_data"] = input_data
+        super().__init__(
+            message=message,
+            error_type="INVALID_INPUT_ERROR",
+            status_code=400,
+            details=base_details
+        )
+
+
+class DataTransformationError(RiskFlowException):
+    """Exception raised for data transformation errors."""
+    
+    def __init__(self, message: str, field: Optional[str] = None, details: Optional[Dict[str, Any]] = None):
+        base_details = details or {}
+        base_details["field"] = field
+        super().__init__(
+            message=message,
+            error_type="DATA_TRANSFORMATION_ERROR",
+            status_code=422,
+            details=base_details
+        )
+
+
+class ModelServingError(RiskFlowException):
+    """Exception raised for model serving errors."""
+    
+    def __init__(self, message: str, model_name: Optional[str] = None, details: Optional[Dict[str, Any]] = None):
+        base_details = details or {}
+        base_details["model_name"] = model_name
+        super().__init__(
+            message=message,
+            error_type="MODEL_SERVING_ERROR",
+            status_code=500,
+            details=base_details
+        )
+
+
+class ModelTrainingError(RiskFlowException):
+    """Exception raised for model training errors."""
+    
+    def __init__(self, message: str, model_name: Optional[str] = None, details: Optional[Dict[str, Any]] = None):
+        base_details = details or {}
+        base_details["model_name"] = model_name
+        super().__init__(
+            message=message,
+            error_type="MODEL_TRAINING_ERROR",
+            status_code=500,
+            details=base_details
+        )
+
+
+class ModelValidationError(RiskFlowException):
+    """Exception raised for model validation errors."""
+    
+    def __init__(self, message: str, model_name: Optional[str] = None, details: Optional[Dict[str, Any]] = None):
+        base_details = details or {}
+        base_details["model_name"] = model_name
+        super().__init__(
+            message=message,
+            error_type="MODEL_VALIDATION_ERROR",
+            status_code=400,
+            details=base_details
+        )
+
+
 class DatabaseException(RiskFlowException):
     """Exception raised when database operations fail."""
     

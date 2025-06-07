@@ -17,15 +17,15 @@ import os
 import joblib
 from cachetools import TTLCache
 
-from .credit_risk_model import CreditRiskModel
-from .model_training import ModelTrainingPipeline
-from ..data.preprocessing import CreditRiskFeatureEngineer, get_current_economic_features
-from ..data.validators import CreditDataSchema, validate_real_time_data
-from ..utils.database import db_manager, get_db_session
-from ..config.settings import get_settings
-from ..config.logging_config import get_logger
-from ..utils.helpers import get_utc_now
-from ..utils.exceptions import ModelServingError, ModelNotFoundError
+from models.credit_risk_model import CreditRiskModel
+from models.model_training import ModelTrainingPipeline
+from data.preprocessing import CreditRiskFeatureEngineer, get_current_economic_features
+from data.validators import CreditDataSchema, validate_real_time_data
+from utils.database import db_manager, get_db_session
+from config.settings import get_settings
+from config.logging_config import get_logger
+from utils.helpers import get_utc_now
+from utils.exceptions import ModelServingError, ModelNotFoundError
 
 logger = get_logger(__name__)
 settings = get_settings()
@@ -60,7 +60,7 @@ class ModelServer:
             
             # Get model version from registry
             with get_db_session() as session:
-                from ..utils.database import ModelRegistry
+                from utils.database import ModelRegistry
                 latest = session.query(ModelRegistry).filter(
                     ModelRegistry.model_name == self.model_name,
                     ModelRegistry.status == "active"
@@ -68,13 +68,28 @@ class ModelServer:
                 
                 if latest:
                     self.model_version = latest.model_version
-                    model_path = Path(latest.model_path)
+                    # Convert relative path to absolute path
+                    if Path(latest.model_path).is_absolute():
+                        model_path = Path(latest.model_path)
+                    else:
+                        # Get project root (2 levels up from src/models/)
+                        project_root = Path(__file__).parent.parent.parent
+                        model_path = project_root / latest.model_path
                     
                     # Load feature names from saved model artifacts
                     feature_names_path = model_path / "feature_names.json"
+                    logger.info(f"Looking for feature names at: {feature_names_path}")
                     if feature_names_path.exists():
                         with open(feature_names_path, 'r') as f:
-                            self.feature_engineer.feature_names = json.load(f)
+                            all_feature_names = json.load(f)
+                            # Remove target variables from feature names
+                            self.feature_engineer.feature_names = [
+                                f for f in all_feature_names 
+                                if f not in ['default_probability', 'loss_given_default', 'target', 'label']
+                            ]
+                            logger.info(f"Loaded {len(self.feature_engineer.feature_names)} feature names (removed {len(all_feature_names) - len(self.feature_engineer.feature_names)} target variables)")
+                    else:
+                        logger.error(f"Feature names file not found at: {feature_names_path}")
                     
                     # Load scalers if available
                     scaler_path = model_path / "scaler.joblib"
@@ -117,8 +132,9 @@ class ModelServer:
                     logger.info(f"Returning cached prediction for request {request_id}")
                     return cached_result
             
-            # Validate input data
-            validation_result = validate_real_time_data([credit_data], 'credit')
+            # Validate input data (exclude request_id if present)
+            data_for_validation = {k: v for k, v in credit_data.items() if k != 'request_id'}
+            validation_result = validate_real_time_data([data_for_validation], 'credit')
             if not validation_result['is_valid']:
                 return {
                     'success': False,
@@ -137,14 +153,30 @@ class ModelServer:
                     'economic_stress_index': 0.3
                 }
             
-            # Transform features for prediction
+            # Transform features for prediction (exclude request_id)
             features_array = self.feature_engineer.transform_prediction_data(
-                credit_data,
+                data_for_validation,
                 economic_features
             )
             
             # Make prediction
+            if not self.feature_engineer.feature_names:
+                logger.error("Feature names not loaded - using default feature names")
+                # This should have been loaded from the saved model
+                raise ValueError("Feature names not configured in feature engineer")
+            
+            logger.info(f"Features array shape: {features_array.shape}, Feature names count: {len(self.feature_engineer.feature_names)}")
+            
+            # Debug: Log the actual feature values
+            logger.info(f"Raw input - Income: {data_for_validation.get('income')}, Employment: {data_for_validation.get('employment_length')}")
+            logger.info(f"First 5 feature values after transformation: {features_array[:5]}")
+            
             features_df = pd.DataFrame([features_array], columns=self.feature_engineer.feature_names)
+            
+            # Debug: Check if features are changing
+            logger.info(f"Features DataFrame shape: {features_df.shape}")
+            logger.info(f"Income-related features: {features_df[['income', 'income_to_loan_ratio']].values[0] if 'income' in features_df.columns else 'income not in columns'}")
+            
             predictions = self.model.predict(features_df)
             
             # Extract results
@@ -271,7 +303,7 @@ class ModelServer:
             # Get model metrics from registry
             if self.model_version:
                 with get_db_session() as session:
-                    from ..utils.database import ModelRegistry
+                    from utils.database import ModelRegistry
                     model_record = session.query(ModelRegistry).filter(
                         ModelRegistry.model_name == self.model_name,
                         ModelRegistry.model_version == self.model_version

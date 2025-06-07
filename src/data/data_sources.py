@@ -41,9 +41,15 @@ class RealDataProvider:
         """
         try:
             url = f"https://api.stlouisfed.org/fred/series/observations"
+            # Get FRED API key from settings
+            fred_api_key = getattr(settings, 'fred_api_key', None)
+            if not fred_api_key:
+                logger.error("FRED API key not found in settings")
+                return None
+            
             params = {
                 'series_id': series_id,
-                'api_key': 'YOUR_FRED_KEY',  # Free registration required
+                'api_key': fred_api_key,
                 'file_type': 'json',
                 'limit': limit,
                 'sort_order': 'desc'

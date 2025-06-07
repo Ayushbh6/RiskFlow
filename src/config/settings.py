@@ -31,16 +31,30 @@ class Settings(BaseSettings):
     database_max_overflow: int = 10
     
     # MLflow Configuration
-    mlflow_tracking_uri: str = "./mlflow"
+    mlflow_tracking_uri: str = "sqlite:///./mlflow.db"
     mlflow_experiment_name: str = "credit_risk_models"
     mlflow_artifact_location: str = "./mlflow/artifacts"
+    
+    @property
+    def _base_path(self):
+        """Get base project path."""
+        return Path(__file__).parent.parent.parent
+    
+    def __init__(self, **kwargs):
+        """Initialize settings with absolute paths."""
+        super().__init__(**kwargs)
+        # Update paths to be absolute
+        base_path = self._base_path
+        self.database_url = f"sqlite:///{base_path}/data/riskflow.db"
+        self.mlflow_tracking_uri = f"sqlite:///{base_path}/mlflow.db"
+        self.mlflow_artifact_location = f"{base_path}/mlflow/artifacts"
     
     # LLM Configuration
     llm_provider: str = "openai"  # "openai" or "ollama"
     
     # OpenAI Configuration
     openai_api_key: Optional[str] = None
-    openai_model: str = "gpt-4.1-mini"
+    openai_model: str = "gpt-3.5-turbo"
     openai_max_tokens: int = 2000
     openai_temperature: float = 0.1
     openai_timeout: float = 30.0
@@ -88,12 +102,14 @@ class Settings(BaseSettings):
     cors_origins: list = ["http://localhost:3000", "http://localhost:8501"]
     
     # Additional environment variables
+    fred_api_key: Optional[str] = None
     tavily_api_key: Optional[str] = None
     redis_url: Optional[str] = None
     model_retrain_interval_hours: int = 24
     cache_ttl_seconds: int = 3600
     cache_max_size: int = 1000
     rate_limit_per_minute: int = 100
+    max_batch_size: int = 100
     
     @field_validator("openai_api_key")
     @classmethod
@@ -187,6 +203,18 @@ def is_development() -> bool:
 def is_redis_enabled() -> bool:
     """Check if Redis caching is enabled."""
     return settings.redis_enabled
+
+
+def get_feature_config() -> dict:
+    """Get feature engineering configuration."""
+    return {
+        "outlier_threshold": 3.0,
+        "missing_value_strategy": "median",
+        "categorical_encoding": "target",
+        "scaling_method": "robust",
+        "feature_selection_threshold": 0.01,
+        "max_features": 50,
+    }
 
 
 # Environment-specific configurations

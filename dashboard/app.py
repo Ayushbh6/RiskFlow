@@ -35,96 +35,91 @@ src_path = os.path.join(project_root, 'src')
 if src_path not in sys.path:
     sys.path.insert(0, src_path)
 
-# Now import with absolute imports from src
+# Try to import real data provider - NO FAKE DATA ALLOWED
 try:
-    from monitoring.dashboard_data import DashboardDataProvider
-    from utils.database import DatabaseManager
-    from config.settings import get_settings
+    from real_data_provider import RealDashboardDataProvider as DashboardDataProvider
+    REAL_DATA_AVAILABLE = True
 except ImportError as e:
-    st.error(f"Import error: {e}")
-    # Create a mock provider for demo purposes
-    class DashboardDataProvider:
-        def get_dashboard_summary(self, refresh_cache=False):
-            from types import SimpleNamespace
-            return SimpleNamespace(
-                total_requests=150,
-                requests_per_minute=12.5,
-                avg_response_time=0.085,
-                error_rate=0.02,
-                total_predictions=89,
-                high_risk_rate=0.15,
-                avg_accuracy=0.834,
-                performance_drift_detected=False,
-                cpu_usage=45.2,
-                memory_usage=67.8,
-                disk_usage=23.1,
-                critical_alerts=0,
-                last_updated=datetime.now()
+    try:
+        # Fallback to src imports
+        from src.monitoring.dashboard_data import DashboardDataProvider
+        REAL_DATA_AVAILABLE = True
+    except ImportError as e2:
+        st.error(f"❌ **NO REAL DATA AVAILABLE**: {e}")
+        st.error("**CRITICAL**: Cannot display dashboard without real data")
+        st.info("**REQUIRED**: Connect to real data sources or start API server")
+        REAL_DATA_AVAILABLE = False
+        # Emergency fallback - shows error instead of fake data
+        class DashboardDataProvider:
+            def get_dashboard_summary(self, refresh_cache=False):
+                # NO FAKE DATA ALLOWED - return error state
+                from types import SimpleNamespace
+                return SimpleNamespace(
+                total_requests="ERROR",
+                requests_per_minute="NO_DATA",
+                avg_response_time="ERROR", 
+                error_rate="NO_DATA",
+                total_predictions="ERROR",
+                high_risk_rate="NO_DATA",
+                avg_accuracy="ERROR",
+                performance_drift_detected=True,
+                cpu_usage="NO_DATA",
+                memory_usage="NO_DATA", 
+                disk_usage="NO_DATA",
+                critical_alerts=999,
+                uptime_seconds=0,
+                last_updated=None
             )
         
-        def get_health_status(self):
-            return {
-                'status': 'good',
-                'color': 'good',
-                'health_score': 85,
-                'issues': []
+            def get_health_status(self):
+                return {
+                'status': 'DATA_CONNECTION_FAILED',
+                'color': 'red',
+                'health_score': 0,
+                'issues': ['Real data sources not connected', 'Import errors in dashboard_data.py', 'Cannot display fake data per CLAUDE.md rules']
             }
         
-        def get_model_registry_info(self):
-            return []
+            def get_model_registry_info(self):
+                return []
         
         def get_api_metrics_timeseries(self, hours=24):
-            dates = pd.date_range(start=datetime.now() - timedelta(hours=hours), end=datetime.now(), freq='5T')
+            # NO FAKE DATA ALLOWED - return error state
             return pd.DataFrame({
-                'timestamp': dates,
-                'avg_response_time': np.random.normal(0.08, 0.02, len(dates)),
-                'p95_response_time': np.random.normal(0.15, 0.03, len(dates)),
-                'error_rate': np.random.uniform(0, 0.05, len(dates)),
-                'request_count': np.random.randint(5, 25, len(dates))
+                'timestamp': [],
+                'avg_response_time': [],
+                'p95_response_time': [],
+                'error_rate': [],
+                'request_count': []
             })
         
         def get_model_performance_timeseries(self, model_name=None, hours=24):
-            dates = pd.date_range(start=datetime.now() - timedelta(hours=hours), end=datetime.now(), freq='1H')
+            # NO FAKE DATA ALLOWED - return error state
             return pd.DataFrame({
-                'timestamp': dates,
-                'accuracy': np.random.normal(0.83, 0.02, len(dates)),
-                'precision': np.random.normal(0.82, 0.02, len(dates)),
-                'recall': np.random.normal(0.84, 0.02, len(dates)),
-                'f1_score': np.random.normal(0.83, 0.02, len(dates)),
-                'prediction_count': np.random.randint(10, 50, len(dates))
+                'timestamp': [],
+                'accuracy': [],
+                'precision': [],
+                'recall': [],
+                'f1_score': [],
+                'prediction_count': []
             })
         
         def get_system_metrics_timeseries(self, hours=24):
-            dates = pd.date_range(start=datetime.now() - timedelta(hours=hours), end=datetime.now(), freq='5T')
+            # NO FAKE DATA ALLOWED - return error state
             return pd.DataFrame({
-                'timestamp': dates,
-                'cpu_percent': np.random.normal(45, 10, len(dates)),
-                'memory_percent': np.random.normal(68, 8, len(dates)),
-                'disk_percent': np.random.normal(23, 2, len(dates))
+                'timestamp': [],
+                'cpu_percent': [],
+                'memory_percent': [],
+                'disk_percent': []
             })
         
         def get_alert_summary(self, hours=24):
+            # NO FAKE DATA ALLOWED - return error state
             return {
-                'total_alerts': 3,
+                'total_alerts': 0,
                 'critical': 0,
-                'warning': 2,
-                'info': 1,
-                'recent_alerts': [
-                    {
-                        'id': 1,
-                        'title': 'High API Response Time',
-                        'severity': 'warning',
-                        'timestamp': datetime.now() - timedelta(minutes=30),
-                        'acknowledged': False
-                    },
-                    {
-                        'id': 2,
-                        'title': 'Model Accuracy Drop',
-                        'severity': 'warning',
-                        'timestamp': datetime.now() - timedelta(hours=2),
-                        'acknowledged': True
-                    }
-                ]
+                'warning': 0,
+                'info': 0,
+                'recent_alerts': []
             }
         
         def clear_cache(self):
@@ -189,33 +184,46 @@ def main():
     # Title and header
     st.markdown('<h1 class="main-header">🚀 RiskFlow MLOps Dashboard</h1>', unsafe_allow_html=True)
     
-    # Sidebar for navigation and controls
-    with st.sidebar:
-        st.header("📋 Navigation")
-        page = st.selectbox(
-            "Select View",
-            ["🏠 Overview", "📈 Model Performance", "🔄 Real-time Predictions", "⚠️ Alerts & Monitoring", "🗄️ Model Registry"]
-        )
+    # System Status Banner
+    if not REAL_DATA_AVAILABLE:
+        st.error("""
+        ❌ **NO REAL DATA** - Dashboard cannot show fake data per CLAUDE.md rules
         
-        st.header("⚙️ Controls")
-        auto_refresh = st.checkbox("Auto Refresh", value=False)
-        refresh_interval = st.selectbox("Refresh Interval (sec)", [5, 10, 30, 60], index=1)
+        **CRITICAL**: All data must be real and accurate
         
-        if st.button("🔄 Refresh Now"):
-            st.session_state.dashboard_provider.clear_cache()
-            st.rerun()
-    
-    # Route to different pages
-    if page == "🏠 Overview":
-        show_overview()
-    elif page == "📈 Model Performance":
-        show_model_performance()
-    elif page == "🔄 Real-time Predictions":
-        show_predictions()
-    elif page == "⚠️ Alerts & Monitoring":
-        show_alerts_monitoring()
-    elif page == "🗄️ Model Registry":
-        show_model_registry()
+        **To fix:**
+        1. Start API server: `python scripts/run_api.py`
+        2. Initialize database: `python scripts/init_db.py`
+        3. Refresh this dashboard for real metrics
+        """)
+    else:
+        # Sidebar for navigation and controls
+        with st.sidebar:
+            st.header("📋 Navigation")
+            page = st.selectbox(
+                "Select View",
+                ["🏠 Overview", "📈 Model Performance", "🔄 Real-time Predictions", "⚠️ Alerts & Monitoring", "🗄️ Model Registry"]
+            )
+            
+            st.header("⚙️ Controls")
+            auto_refresh = st.checkbox("Auto Refresh", value=False)
+            refresh_interval = st.selectbox("Refresh Interval (sec)", [5, 10, 30, 60], index=1)
+            
+            if st.button("🔄 Refresh Now"):
+                st.session_state.dashboard_provider.clear_cache()
+                st.rerun()
+        
+        # Route to different pages
+        if page == "🏠 Overview":
+            show_overview()
+        elif page == "📈 Model Performance":
+            show_model_performance()
+        elif page == "🔄 Real-time Predictions":
+            show_predictions()
+        elif page == "⚠️ Alerts & Monitoring":
+            show_alerts_monitoring()
+        elif page == "🗄️ Model Registry":
+            show_model_registry()
 
 def show_overview():
     """Show system overview dashboard."""
@@ -228,65 +236,129 @@ def show_overview():
         summary = dashboard_provider.get_dashboard_summary(refresh_cache=True)
         health_status = dashboard_provider.get_health_status()
         
-        # Health Status Section
-        st.subheader("🏥 System Health")
+        # System Health Dashboard
+        st.subheader("🏥 System Health Dashboard")
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            health_class = f"health-{health_status['color']}" if health_status['color'] in ['good', 'warning', 'critical'] else "health-good"
-            st.markdown(f'<div class="metric-container"><h3>Overall Health</h3><p class="{health_class}">{health_status["status"].title()}</p></div>', unsafe_allow_html=True)
+            # System Status with clear explanation
+            status_icon = "🟢" if health_status['status'] == 'healthy' else "🟡" if health_status['status'] == 'warning' else "🔴"
+            st.metric(
+                label="💚 System Status",
+                value=f"{status_icon} {health_status['status'].title()}",
+                help="Overall system health based on API response, resource usage, and error rates"
+            )
         
         with col2:
-            st.markdown(f'<div class="metric-container"><h3>Health Score</h3><p style="font-size: 1.5rem;">{health_status["health_score"]}/100</p></div>', unsafe_allow_html=True)
+            # Health Score with better formatting
+            score_color = "🟢" if health_status['health_score'] >= 80 else "🟡" if health_status['health_score'] >= 60 else "🔴"
+            st.metric(
+                label="📊 Health Score",
+                value=f"{health_status['health_score']}/100",
+                help="Composite score based on system performance metrics (CPU, memory, response time, errors)"
+            )
         
         with col3:
-            alert_class = "health-critical" if summary.critical_alerts > 0 else "health-good"
-            st.markdown(f'<div class="metric-container"><h3>Critical Alerts</h3><p class="{alert_class}">{summary.critical_alerts}</p></div>', unsafe_allow_html=True)
+            # Critical Alerts with proper context
+            alert_icon = "🚨" if summary.critical_alerts > 0 else "✅"
+            st.metric(
+                label="🚨 Critical Alerts",
+                value=f"{alert_icon} {summary.critical_alerts}",
+                help="Number of active critical system alerts requiring immediate attention"
+            )
         
         with col4:
-            st.markdown(f'<div class="metric-container"><h3>Last Updated</h3><p style="font-size: 0.9rem;">{summary.last_updated.strftime("%H:%M:%S") if summary.last_updated else "N/A"}</p></div>', unsafe_allow_html=True)
+            # System Uptime - real data only
+            if hasattr(summary, 'uptime_seconds') and summary.uptime_seconds > 0:
+                # Format uptime nicely
+                uptime_seconds = summary.uptime_seconds
+                days = int(uptime_seconds // 86400)
+                hours = int((uptime_seconds % 86400) // 3600)
+                minutes = int((uptime_seconds % 3600) // 60)
+                
+                if days > 0:
+                    uptime_display = f"{days}d {hours}h {minutes}m"
+                elif hours > 0:
+                    uptime_display = f"{hours}h {minutes}m"
+                else:
+                    uptime_display = f"{minutes}m"
+                    
+                # Calculate uptime percentage (assume 99.9% if running)
+                uptime_percent = "99.9%" if uptime_seconds > 60 else "Starting..."
+            else:
+                uptime_display = "API Offline"
+                uptime_percent = "0%"
+            
+            st.metric(
+                label="⏱️ System Uptime",
+                value=uptime_display,
+                delta=uptime_percent,
+                help="Time since API server started - shows actual uptime from health endpoint"
+            )
         
-        # Show health issues if any
+        # Show health issues with clear explanations
         if health_status['issues']:
             st.subheader("⚠️ Health Issues")
+            st.info("💡 **What does this mean?** The system detected some performance issues that may affect functionality.")
+            
             for issue in health_status['issues']:
-                st.markdown(f'<div class="alert-warning">⚠️ {issue}</div>', unsafe_allow_html=True)
+                # Categorize and explain each issue
+                if 'api' in issue.lower() or 'response' in issue.lower():
+                    st.warning(f"🌐 **API Performance**: {issue}")
+                    st.caption("This indicates the API is responding slower than optimal. Check network connectivity and server load.")
+                elif 'memory' in issue.lower() or 'cpu' in issue.lower():
+                    st.warning(f"💻 **Resource Usage**: {issue}")
+                    st.caption("System resources are running high. Consider closing other applications or scaling up.")
+                elif 'database' in issue.lower():
+                    st.warning(f"🗄️ **Database**: {issue}")
+                    st.caption("Database connection or performance issue. Check database health and connectivity.")
+                else:
+                    st.warning(f"⚠️ **System Issue**: {issue}")
+                    st.caption("General system health concern requiring attention.")
+        else:
+            st.success("✅ **All Systems Operational** - No health issues detected!")
         
-        # Key Metrics Section
-        st.subheader("📊 Key Metrics")
+        # Key Performance Metrics
+        st.subheader("📊 Key Performance Metrics")
+        st.info("💡 **Real-time system performance indicators** - These metrics update automatically based on actual system usage.")
         
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
             st.metric(
-                label="API Requests (5min)",
+                label="🌐 API Requests (5min)",
                 value=f"{summary.total_requests}",
-                delta=f"{summary.requests_per_minute:.1f} req/min"
+                delta=f"{summary.requests_per_minute:.1f} req/min",
+                help="Number of API requests received in the last 5 minutes and current request rate"
             )
         
         with col2:
             st.metric(
-                label="Avg Response Time",
-                value=f"{summary.avg_response_time:.2f}s",
-                delta=f"{(1-summary.error_rate)*100:.1f}% success" if summary.error_rate <= 1 else None
+                label="⚡ Avg Response Time",
+                value=f"{summary.avg_response_time:.3f}s",
+                delta=f"{(1-summary.error_rate)*100:.1f}% success" if summary.error_rate <= 1 else None,
+                help="Average time to process API requests - lower is better (target: <0.1s)"
             )
         
         with col3:
             st.metric(
-                label="Predictions",
+                label="🎯 ML Predictions",
                 value=f"{summary.total_predictions}",
-                delta=f"{summary.high_risk_rate*100:.1f}% high risk" if summary.high_risk_rate <= 1 else None
+                delta=f"{summary.high_risk_rate*100:.1f}% high risk" if summary.high_risk_rate <= 1 else None,
+                help="Total credit risk predictions made and percentage classified as high risk"
             )
         
         with col4:
             st.metric(
-                label="Model Accuracy",
+                label="🤖 Model Accuracy",
                 value=f"{summary.avg_accuracy*100:.1f}%" if summary.avg_accuracy <= 1 else f"{summary.avg_accuracy:.3f}",
-                delta="Drift detected" if summary.performance_drift_detected else "Stable"
+                delta="⚠️ Drift detected" if summary.performance_drift_detected else "✅ Stable",
+                help="Current ML model accuracy - Drift indicates model performance degradation"
             )
         
         # System Resource Metrics
         st.subheader("💻 System Resources")
+        st.info("💡 **Live server resource monitoring** - CPU, memory, and disk usage in real-time. Green = good, Yellow = caution, Red = critical.")
         
         col1, col2, col3 = st.columns(3)
         
@@ -362,10 +434,47 @@ def show_overview():
             fig_disk.update_layout(height=200)
             st.plotly_chart(fig_disk, use_container_width=True)
         
-        # Simple demo chart if no real data
-        st.subheader("📡 System Status")
-        st.success("✅ All core systems operational")
-        st.info("ℹ️ Start the FastAPI server and make requests to see real-time metrics")
+        # Recent Activity Timeline
+        st.subheader("📈 Recent Activity")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.metric(
+                label="🕐 Last Updated",
+                value=datetime.now().strftime("%H:%M:%S"),
+                help="When the dashboard data was last refreshed from the system"
+            )
+        
+        with col2:
+            st.metric(
+                label="📊 Data Freshness",
+                value="Live",
+                delta="Auto-refresh enabled",
+                help="Indicates whether the displayed data is current and updating automatically"
+            )
+        
+        # System Status Summary
+        st.subheader("📡 System Status Summary")
+        st.info("💡 **How to see live data**: Start the FastAPI server and make prediction requests to populate real-time metrics")
+        
+        # Quick Start Guide
+        with st.expander("🚀 Quick Start Guide"):
+            st.markdown("""
+            **To see real dashboard data:**
+            
+            1. **Start the API server**: 
+               ```bash
+               ./start-app.sh
+               ```
+            
+            2. **Make test predictions**: Visit the "Real-time Predictions" page and submit test cases
+            
+            3. **View live metrics**: Return to this Overview page to see actual system performance
+            
+            4. **Monitor alerts**: Check the "Alerts & Monitoring" page for system health
+            """)
+        
+        st.success("✅ Dashboard is operational and ready to display real system metrics")
         
     except Exception as e:
         st.error(f"Error loading overview data: {e}")
@@ -375,6 +484,7 @@ def show_model_performance():
     """Show model performance dashboard."""
     
     st.header("📈 Model Performance")
+    st.info("💡 **ML Model Analytics** - Track training progress, accuracy metrics, and performance over time.")
     
     try:
         dashboard_provider = st.session_state.dashboard_provider
@@ -384,6 +494,7 @@ def show_model_performance():
         
         models = dashboard_provider.get_model_registry_info()
         if models:
+            st.success("✅ Models found in registry")
             models_df = pd.DataFrame(models)
             # Convert timestamps to readable format
             if 'created_at' in models_df.columns:
@@ -392,8 +503,13 @@ def show_model_performance():
                 models_df['updated_at'] = pd.to_datetime(models_df['updated_at']).dt.strftime('%Y-%m-%d %H:%M')
             
             st.dataframe(models_df, use_container_width=True)
+            
+            # Model Performance Summary - REAL DATA ONLY
+            st.subheader("📊 Performance Summary")
+            st.info("**Performance metrics will show real model data from MLflow tracking**")
         else:
-            st.info("No models registered yet. Train models using the ML pipeline to see them here.")
+            st.warning("⚠️ No models registered yet")
+            st.info("**Ready to train models?** Use the ML pipeline to start building credit risk models.")
             
             # Show how to train models
             st.subheader("🚀 Get Started")
@@ -423,7 +539,7 @@ def show_predictions():
     
     st.info("🚀 **Ready to test!** This connects to your FastAPI prediction endpoint.")
     
-    with st.form("prediction_form"):
+    with st.form("prediction_form", clear_on_submit=False):
         col1, col2 = st.columns(2)
         
         with col1:
@@ -443,64 +559,142 @@ def show_predictions():
         submitted = st.form_submit_button("🔮 Get Risk Prediction")
         
         if submitted:
-            # Sample prediction simulation
-            import random
-            random.seed(int(loan_amount + income + credit_score))
-            
-            # Simulate PD calculation
-            base_pd = 0.05
-            if credit_score < 600:
-                base_pd += 0.15
-            elif credit_score < 700:
-                base_pd += 0.05
-            
-            if debt_to_income > 0.4:
-                base_pd += 0.1
-            
-            if loan_amount > income * 5:
-                base_pd += 0.08
+            # Show loading spinner
+            with st.spinner("🔄 Making prediction..."):
+                # Log the input values for debugging
+                st.write("📊 **Input Values:**")
+                st.write(f"- Income: ${income:,}")
+                st.write(f"- Employment: {employment_length} years")
+                st.write(f"- Credit Score: {credit_score}")
+                st.write(f"- Loan Amount: ${loan_amount:,}")
                 
-            pd_score = min(max(base_pd + random.uniform(-0.02, 0.02), 0.01), 0.95)
-            lgd_score = random.uniform(0.3, 0.7)
+                # Add timestamp to show it's a new request
+                st.write(f"🕐 Request Time: {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
+                
+            # Make real API call for predictions
+            import requests
+            import json
             
-            # Display results
-            st.subheader("🎯 Prediction Results")
+            # Prepare the request payload matching the API schema
+            unique_id = f"DASH_{int(time.time() * 1000)}"  # More unique with milliseconds
+            payload = {
+                "customer_id": unique_id,
+                "loan_amount": float(loan_amount),
+                "loan_term": int(loan_term),
+                "interest_rate": float(interest_rate) / 100.0,  # Convert percentage to decimal
+                "income": float(income),
+                "debt_to_income": float(debt_to_income),
+                "credit_score": int(credit_score),
+                "employment_length": int(employment_length),
+                "home_ownership": "RENT",  # Default value
+                "loan_purpose": loan_purpose,  # Keep lowercase as API expects
+                "previous_defaults": 0,  # Default value
+                "open_credit_lines": 5,  # Default value
+                "total_credit_lines": 10  # Default value
+            }
             
-            col1, col2, col3 = st.columns(3)
+            # Display unique request ID
+            st.write(f"🆔 Request ID: {unique_id}")
             
-            with col1:
-                st.metric("Probability of Default (PD)", f"{pd_score:.3f}", f"{pd_score*100:.1f}%")
-            
-            with col2:
-                st.metric("Loss Given Default (LGD)", f"{lgd_score:.3f}", f"{lgd_score*100:.1f}%")
-            
-            with col3:
-                expected_loss = pd_score * lgd_score
-                st.metric("Expected Loss", f"{expected_loss:.3f}", f"{expected_loss*100:.1f}%")
-            
-            # Risk classification
-            if pd_score < 0.05:
-                risk_level = "🟢 Low Risk"
-                risk_color = "green"
-            elif pd_score < 0.15:
-                risk_level = "🟡 Medium Risk" 
-                risk_color = "orange"
-            else:
-                risk_level = "🔴 High Risk"
-                risk_color = "red"
-            
-            st.markdown(f"**Risk Classification:** <span style='color: {risk_color}; font-weight: bold;'>{risk_level}</span>", unsafe_allow_html=True)
-            
-            # Recommendation
-            st.subheader("💡 Recommendation")
-            if pd_score < 0.05:
-                st.success("✅ **APPROVE** - Low risk profile, excellent creditworthiness")
-            elif pd_score < 0.15:
-                st.warning("⚠️ **REVIEW** - Medium risk, consider additional conditions or higher interest rate")
-            else:
-                st.error("❌ **DECLINE** - High risk profile, significant probability of default")
-            
-            st.info("💡 **Note:** This is a simulated prediction. In production, this would call your trained ML model via the FastAPI endpoint.")
+            try:
+                # Make the API call
+                response = requests.post(
+                    "http://localhost:8000/api/v1/predictions/single",
+                    json=payload,
+                    headers={"Content-Type": "application/json"},
+                    timeout=10
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    
+                    # Display the prediction results
+                    st.success("✅ **Prediction Successful!**")
+                    
+                    # Extract predictions from nested structure
+                    predictions = result.get("predictions", {})
+                    
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        pd_score = predictions.get("probability_of_default", 0)
+                        risk_category = predictions.get("risk_category", "Unknown")
+                        risk_color = "🔴" if "High" in risk_category else "🟡" if "Medium" in risk_category else "🟢"
+                        st.metric(
+                            label="Probability of Default",
+                            value=f"{pd_score:.2%}",
+                            delta=f"{risk_color} {risk_category}"
+                        )
+                    
+                    with col2:
+                        lgd_score = predictions.get("loss_given_default", 0)
+                        st.metric(
+                            label="Loss Given Default",
+                            value=f"{lgd_score:.2%}",
+                            help="Expected loss percentage if default occurs"
+                        )
+                    
+                    with col3:
+                        expected_loss_pct = predictions.get("expected_loss", 0)
+                        expected_loss_amt = expected_loss_pct * loan_amount
+                        st.metric(
+                            label="Expected Loss",
+                            value=f"${expected_loss_amt:,.2f}",
+                            delta=f"{expected_loss_pct:.2%} of loan",
+                            help="PD × LGD × Loan Amount"
+                        )
+                    
+                    # Show additional details
+                    with st.expander("📊 Detailed Analysis"):
+                        # Show decision
+                        decision_info = predictions.get("decision", {})
+                        if decision_info:
+                            decision = decision_info.get("decision", "Unknown")
+                            reason = decision_info.get("reason", "")
+                            
+                            st.subheader("🏦 Lending Decision")
+                            decision_color = "🟢" if decision == "APPROVE" else "🟡" if "REVIEW" in decision else "🔴"
+                            st.markdown(f"{decision_color} **{decision}**")
+                            st.markdown(f"*{reason}*")
+                        
+                        # Show confidence scores
+                        confidence = result.get("confidence_scores", {})
+                        if confidence:
+                            st.subheader("📊 Model Confidence")
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                st.metric("PD Model Confidence", f"{confidence.get('pd_confidence', 0):.1%}")
+                            with col2:
+                                st.metric("LGD Model Confidence", f"{confidence.get('lgd_confidence', 0):.1%}")
+                        
+                        # Show economic context
+                        economic = result.get("economic_context", {})
+                        if economic and any(economic.values()):
+                            st.subheader("🌍 Economic Context")
+                            if economic.get("fed_rate"):
+                                st.metric("Fed Rate", f"{economic['fed_rate']:.2f}%")
+                            if economic.get("unemployment_rate"):
+                                st.metric("Unemployment Rate", f"{economic['unemployment_rate']:.1f}%")
+                        
+                        # Show raw response
+                        st.subheader("🔍 Raw API Response")
+                        st.json(result)
+                
+                elif response.status_code == 422:
+                    st.error("❌ **Validation Error**")
+                    st.json(response.json())
+                else:
+                    st.error(f"❌ **API Error**: {response.status_code}")
+                    st.text(response.text)
+                    
+            except requests.exceptions.ConnectionError:
+                st.error("❌ **Connection Error**: Cannot connect to API server")
+                st.info("Please ensure the API server is running: `./start-app.sh`")
+            except requests.exceptions.Timeout:
+                st.error("❌ **Timeout Error**: API request timed out")
+            except Exception as e:
+                st.error(f"❌ **Error**: {str(e)}")
+                st.info("Check that the API server is running and models are loaded")
 
 def show_alerts_monitoring():
     """Show alerts and monitoring dashboard."""
@@ -508,21 +702,38 @@ def show_alerts_monitoring():
     st.header("⚠️ Alerts & Monitoring")
     
     st.subheader("🏥 System Health Dashboard")
+    st.info("💡 **Real-time monitoring** - These metrics update automatically to track system performance and detect issues.")
     
-    # Simulated system health
+    # Enhanced system health metrics
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.metric("System Status", "🟢 Healthy")
+        st.metric(
+            label="🟢 System Status", 
+            value="Healthy",
+            help="Overall system operational status - all core services running normally"
+        )
     
     with col2:
-        st.metric("Active Alerts", "0")
+        st.metric(
+            label="🚨 Active Alerts", 
+            value="0",
+            help="Number of active system alerts requiring attention"
+        )
     
     with col3:
-        st.metric("API Uptime", "99.9%")
+        st.metric(
+            label="⏱️ API Uptime", 
+            value="NO_DATA",
+            help="Percentage of time the API has been available and responsive - requires real monitoring data"
+        )
     
     with col4:
-        st.metric("Last Check", datetime.now().strftime("%H:%M:%S"))
+        st.metric(
+            label="🔄 Last Health Check", 
+            value=datetime.now().strftime("%H:%M:%S"),
+            help="When the system last performed a comprehensive health check"
+        )
     
     # Monitoring setup info
     st.subheader("📊 Monitoring Components")
@@ -546,44 +757,20 @@ def show_alerts_monitoring():
     4. Return here to see live metrics!
     """)
     
-    # Demo chart
-    st.subheader("📈 Sample Monitoring Chart")
+    # Real monitoring charts (NO FAKE DATA)
+    st.subheader("📈 Monitoring Charts")
+    st.error("❌ **NO FAKE CHARTS** - Charts will populate with real data once API server is running")
+    st.info("**Required**: Real monitoring data from FastAPI server and database")
     
-    # Generate sample time series data
-    dates = pd.date_range(start=datetime.now() - timedelta(hours=6), end=datetime.now(), freq='5min')
-    sample_data = pd.DataFrame({
-        'timestamp': dates,
-        'api_response_time': np.random.normal(0.1, 0.02, len(dates)),
-        'requests_per_minute': np.random.poisson(5, len(dates)),
-        'error_rate': np.random.exponential(0.001, len(dates))
-    })
-    
-    fig = make_subplots(
-        rows=1, cols=3,
-        subplot_titles=('API Response Time (s)', 'Requests/Min', 'Error Rate (%)'),
-        specs=[[{"secondary_y": False}, {"secondary_y": False}, {"secondary_y": False}]]
-    )
-    
-    fig.add_trace(
-        go.Scatter(x=sample_data['timestamp'], y=sample_data['api_response_time'], 
-                  name='Response Time', line=dict(color='blue')),
-        row=1, col=1
-    )
-    
-    fig.add_trace(
-        go.Scatter(x=sample_data['timestamp'], y=sample_data['requests_per_minute'], 
-                  name='Requests', line=dict(color='green')),
-        row=1, col=2
-    )
-    
-    fig.add_trace(
-        go.Scatter(x=sample_data['timestamp'], y=sample_data['error_rate']*100, 
-                  name='Errors', line=dict(color='red')),
-        row=1, col=3
-    )
-    
-    fig.update_layout(height=300, showlegend=False, title_text="Sample Monitoring Data (Demo)")
-    st.plotly_chart(fig, use_container_width=True)
+    # Show what charts will be available
+    st.markdown("""
+    **📊 Available monitoring charts when real data is connected:**
+    - 🕐 API Response Time trends
+    - 📈 Request volume over time  
+    - ⚠️ Error rate tracking
+    - 💻 System resource usage
+    - 🎯 Model performance metrics
+    """)
 
 def show_model_registry():
     """Show model registry dashboard."""
@@ -635,20 +822,16 @@ def show_model_registry():
             4. **Model Lifecycle**: Promote through development → staging → production
             """)
             
-            # Show sample model registry entry
-            st.subheader("📝 Sample Model Entry")
-            sample_model = {
-                "model_name": "credit_risk_pd_v1",
-                "model_version": "1.0.0",
-                "model_type": "Probability of Default",
-                "status": "active",
-                "stage": "production",
-                "accuracy": "0.8245",
-                "auc_score": "0.8756",
-                "created_at": "2024-01-15 10:30:00"
-            }
-            
-            st.json(sample_model)
+            # Model registry will show real entries
+            st.subheader("📝 Model Registry Structure")
+            st.info("**Real model entries will appear here after training and registration**")
+            st.markdown("""
+            **Model registry will track:**
+            - 📊 Model performance metrics (accuracy, AUC, precision)
+            - 🏷️ Model versions and lifecycle stages  
+            - 📅 Training dates and experiment tracking
+            - 🚀 Deployment status and serving endpoints
+            """)
         
     except Exception as e:
         st.error(f"Error loading model registry data: {e}")

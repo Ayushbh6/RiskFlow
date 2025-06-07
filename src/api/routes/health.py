@@ -3,19 +3,19 @@ Health check endpoints for RiskFlow Credit Risk API.
 Provides comprehensive system health monitoring.
 """
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Request
 from fastapi.responses import JSONResponse
 from typing import Dict, Any
 from datetime import datetime
 import time
 import asyncio
 
-from ...data.data_sources import get_real_market_data
-from ...utils.database import db_manager
-from ...models.model_serving import get_model_server
-from ...config.settings import get_settings
-from ...config.logging_config import get_logger
-from ...utils.helpers import get_utc_now
+from data.data_sources import get_real_market_data
+from utils.database import db_manager
+from models.model_serving import get_model_server
+from config.settings import get_settings
+from config.logging_config import get_logger
+from utils.helpers import get_utc_now
 
 logger = get_logger(__name__)
 settings = get_settings()
@@ -23,17 +23,21 @@ router = APIRouter()
 
 
 @router.get("/", response_model=Dict[str, Any])
-async def basic_health_check():
+async def basic_health_check(request: Request):
     """
     Basic health check endpoint.
     Returns simple status and timestamp.
     """
+    # Get start time from app state
+    start_time = getattr(request.app.state, 'start_time', time.time())
+    uptime_seconds = time.time() - start_time
+    
     return {
         "status": "healthy",
         "service": "RiskFlow Credit Risk API",
         "version": settings.app_version,
         "timestamp": get_utc_now().isoformat(),
-        "uptime_seconds": time.time() - getattr(basic_health_check, '_start_time', time.time())
+        "uptime_seconds": uptime_seconds
     }
 
 
@@ -214,17 +218,21 @@ async def liveness_check():
 
 
 @router.get("/metrics", response_model=Dict[str, Any])
-async def health_metrics():
+async def health_metrics(request: Request):
     """
     Health metrics endpoint for monitoring systems.
     Provides detailed metrics about system performance.
     """
     try:
+        # Get start time from app state
+        start_time = getattr(request.app.state, 'start_time', time.time())
+        uptime_seconds = time.time() - start_time
+        
         metrics = {
             "timestamp": get_utc_now().isoformat(),
             "service_metrics": {
                 "requests_total": getattr(health_metrics, '_request_count', 0),
-                "uptime_seconds": time.time() - getattr(health_metrics, '_start_time', time.time()),
+                "uptime_seconds": uptime_seconds,
                 "memory_usage_mb": "not_implemented",  # Could use psutil
                 "cpu_usage_percent": "not_implemented"  # Could use psutil
             },
@@ -425,62 +433,7 @@ async def system_health_report():
     return report
 
 
-@router.get("/metrics", response_model=Dict[str, Any])
-async def health_metrics():
-    """
-    Get health metrics for monitoring systems like Prometheus.
-    """
-    metrics = {
-        "uptime_seconds": time.time() - getattr(health_metrics, '_start_time', time.time()),
-        "requests_total": getattr(health_metrics, '_request_count', 0),
-        "database_health": 1 if (await check_database_health())['status'] == 'healthy' else 0,
-        "data_source_health": 1 if (await check_data_source_health())['status'] == 'healthy' else 0,
-        "model_server_health": 1 if (await check_model_server_health())['status'] == 'healthy' else 0
-    }
-    
-    # Database metrics
-    try:
-        db_stats = db_manager.get_database_stats()
-        metrics["database_metrics"] = {
-            "credit_data_count": db_stats.get("credit_data_count", 0),
-            "prediction_count": db_stats.get("prediction_count", 0)
-        }
-    except Exception as e:
-        metrics["database_metrics"] = {"error": str(e)}
-    
-    # Model Server metrics
-    try:
-        server = get_model_server()
-        model_info = server.get_model_info()
-        metrics["model_server_metrics"] = {
-            "model_loaded": 1 if model_info.get("is_loaded") else 0,
-            "cache_size": model_info.get("cache_size", 0)
-        }
-    except Exception as e:
-        metrics["model_server_metrics"] = {"error": str(e)}
-    
-    # Data source metrics
-    try:
-        market_data = get_real_market_data()
-        if market_data:
-            metrics["data_source_metrics"] = {
-                "market_data_available": True,
-                "data_quality": market_data.get("data_quality", "unknown"),
-                "last_update": market_data.get("timestamp", "unknown"),
-                "economic_factors_count": len(market_data.get("economic_factors", {}))
-            }
-        else:
-            metrics["data_source_metrics"] = {
-                "market_data_available": False,
-                "message": "Real market data sources unavailable"
-            }
-    except Exception as e:
-        metrics["data_source_metrics"]["error"] = str(e)
-    
-    # Increment request counter
-    health_metrics._request_count = getattr(health_metrics, '_request_count', 0) + 1
-    
-    return metrics
+# Duplicate function removed - functionality merged into the first health_metrics function above
 
 # Initialize start time and request counter
 health_metrics._start_time = time.time()

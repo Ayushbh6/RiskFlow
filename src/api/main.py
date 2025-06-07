@@ -14,13 +14,13 @@ import uuid
 from typing import Dict, Any
 from contextlib import asynccontextmanager
 
-from .routes import health, predictions, models
-from .middleware.logging import LoggingMiddleware
-from .middleware.rate_limiting import RateLimitMiddleware
-from ..config.settings import get_settings
-from ..config.logging_config import get_logger
-from ..utils.database import initialize_database
-from ..utils.exceptions import RiskFlowException
+from api.routes import health, predictions, models
+from api.middleware.logging import LoggingMiddleware
+from api.middleware.rate_limiting import RateLimitMiddleware
+from config.settings import get_settings
+from config.logging_config import get_logger
+from utils.database import initialize_database
+from utils.exceptions import RiskFlowException
 
 logger = get_logger(__name__)
 settings = get_settings()
@@ -34,6 +34,9 @@ async def lifespan(app: FastAPI):
     """
     # Startup
     logger.info("Starting RiskFlow API server")
+    
+    # Store application start time globally
+    app.state.start_time = time.time()
     
     # Initialize database
     try:

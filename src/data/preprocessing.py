@@ -257,11 +257,12 @@ class CreditRiskFeatureEngineer:
                 target = pd.Series(dtype=int)
                 features = features_df
             
-            # Remove non-feature columns
-            columns_to_drop = ['id', 'customer_id', 'created_at', 'updated_at', 'loss_given_default']
+            # Remove non-feature columns and target variables
+            columns_to_drop = ['id', 'customer_id', 'created_at', 'updated_at', 'loss_given_default', 'default_probability', 'target', 'label']
             columns_to_drop = [col for col in columns_to_drop if col in features.columns]
             if columns_to_drop:
                 features = features.drop(columns=columns_to_drop)
+                logger.info(f"Dropped columns: {columns_to_drop}")
             
             # Select only numeric features for ML
             numeric_features = features.select_dtypes(include=[np.number])
@@ -314,8 +315,16 @@ class CreditRiskFeatureEngineer:
             # Handle missing values
             numeric_features = self._handle_missing_values(numeric_features)
             
+            # Debug: Log features before scaling
+            logger.info(f"Features before scaling - Income: {numeric_features['income'].values[0] if 'income' in numeric_features else 'N/A'}")
+            logger.info(f"Numeric features shape: {numeric_features.shape}")
+            logger.info(f"Numeric features columns: {list(numeric_features.columns)[:10]}...")
+            
             # Scale features using saved scalers
             scaled_features = self._scale_features(numeric_features, fit=False)
+            
+            # Debug: Log features after scaling
+            logger.info(f"Features after scaling shape: {scaled_features.shape}")
             
             # Ensure same feature order as training
             if self.feature_names:
@@ -327,6 +336,10 @@ class CreditRiskFeatureEngineer:
                     logger.warning(f"Missing features for prediction: {missing_features}")
                     # Add missing features with zeros
                     for feature in missing_features:
+                        # Skip target variable if it's in feature names by mistake
+                        if feature in ['default_probability', 'loss_given_default', 'target', 'label']:
+                            logger.warning(f"Skipping target variable '{feature}' in feature list")
+                            continue
                         scaled_features[feature] = 0.0
                 
                 if extra_features:

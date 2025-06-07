@@ -11,8 +11,8 @@ from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import StreamingResponse
 
-from ...config.logging_config import get_logger
-from ...utils.database import db_manager
+from config.logging_config import get_logger
+from utils.database import db_manager
 
 logger = get_logger(__name__)
 

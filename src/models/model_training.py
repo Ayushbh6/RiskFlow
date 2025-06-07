@@ -15,15 +15,15 @@ import json
 import os
 from pathlib import Path
 
-from .credit_risk_model import CreditRiskModel, ProbabilityOfDefaultModel, LossGivenDefaultModel
-from ..data.preprocessing import CreditRiskFeatureEngineer, get_current_economic_features
-from ..utils.database import db_manager, get_db_session
-from ..config.settings import get_settings
-from ..config.logging_config import get_logger
-from ..data.data_ingestion import DataIngestionPipeline
-from ..utils.database import DatabaseManager
-from ..utils.exceptions import ModelTrainingError
-from ..utils.helpers import get_utc_now
+from models.credit_risk_model import CreditRiskModel, ProbabilityOfDefaultModel, LossGivenDefaultModel
+from data.preprocessing import CreditRiskFeatureEngineer, get_current_economic_features
+from utils.database import db_manager, get_db_session
+from config.settings import get_settings
+from config.logging_config import get_logger
+from data.ingestion import DataIngestionPipeline
+from utils.database import DatabaseManager
+from utils.exceptions import ModelTrainingError
+from utils.helpers import get_utc_now
 
 logger = get_logger(__name__)
 settings = get_settings()
@@ -39,7 +39,15 @@ class ModelTrainingPipeline:
         """Initialize training pipeline."""
         self.settings = settings
         self.feature_engineer = CreditRiskFeatureEngineer()
-        self.model = CreditRiskModel(model_type='classification', params=self.params)
+        self.params = {
+            'model_type': 'classification',
+            'random_state': 42,
+            'n_estimators': 100,
+            'max_depth': 10
+        }
+        self.model_name = "credit_risk_model"
+        self.db_manager = db_manager
+        self.model = CreditRiskModel(pd_model_type='ensemble', lgd_model_type='gradient_boosting')
         self.mlflow_client = None
         self._setup_mlflow()
         
@@ -274,8 +282,9 @@ class ModelTrainingPipeline:
             if model_version is None:
                 model_version = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
             
-            # Create model directory
-            model_dir = Path("data/models") / model_name / model_version
+            # Create model directory with absolute path
+            base_path = Path(__file__).parent.parent.parent  # Get to project root
+            model_dir = base_path / "data" / "models" / model_name / model_version
             model_dir.mkdir(parents=True, exist_ok=True)
             
             # Save model artifacts
@@ -333,7 +342,7 @@ class ModelTrainingPipeline:
         try:
             # Query latest active model from registry
             with get_db_session() as session:
-                from ..utils.database import ModelRegistry
+                from utils.database import ModelRegistry
                 latest = session.query(ModelRegistry).filter(
                     ModelRegistry.model_name == model_name,
                     ModelRegistry.status == "active"
@@ -344,6 +353,11 @@ class ModelTrainingPipeline:
                 
                 model_path = Path(latest.model_path)
                 model_version = latest.model_version
+                
+                # If path is relative, make it absolute
+                if not model_path.is_absolute():
+                    base_path = Path(__file__).parent.parent.parent
+                    model_path = base_path / model_path
             
             # Load model
             model = CreditRiskModel()

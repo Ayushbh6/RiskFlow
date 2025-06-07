@@ -9,20 +9,20 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 import json
 
-from ..schemas.model import (
+from api.schemas.model import (
     ModelInfo,
     ModelPerformance,
     ModelRegistry,
     ModelComparisonRequest,
     ModelComparisonResponse
 )
-from ...models.model_serving import get_model_server
-from ...models.model_training import ModelTrainingPipeline
-from ...utils.database import db_manager, get_db_session
-from ...config.settings import get_settings
-from ...config.logging_config import get_logger
-from ...utils.exceptions import APIError, ModelNotFoundError
-from ...utils.helpers import get_utc_now
+from models.model_serving import get_model_server
+from models.model_training import ModelTrainingPipeline
+from utils.database import db_manager, get_db_session
+from config.settings import get_settings
+from config.logging_config import get_logger
+from utils.exceptions import APIError, ModelNotFoundError
+from utils.helpers import get_utc_now
 
 logger = get_logger(__name__)
 settings = get_settings()
@@ -51,7 +51,7 @@ async def get_current_model_info():
         
         # Get additional model details from registry
         with get_db_session() as session:
-            from ...utils.database import ModelRegistry as ModelRegistryTable
+            from utils.database import ModelRegistry as ModelRegistryTable
             model_record = session.query(ModelRegistryTable).filter(
                 ModelRegistryTable.model_name == model_info.get('model_name', 'credit_risk_model'),
                 ModelRegistryTable.status == "active"
@@ -577,7 +577,7 @@ async def trigger_model_retraining():
     try:
         # This would trigger a background job in a real system
         # For now, we'll run it synchronously for simplicity
-        from ...models.model_training import ModelTrainingPipeline
+        from models.model_training import ModelTrainingPipeline
         
         pipeline = ModelTrainingPipeline()
         new_model_version = pipeline.run_training_pipeline()

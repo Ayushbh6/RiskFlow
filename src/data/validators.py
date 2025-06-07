@@ -5,15 +5,15 @@ Ensures all data is real, accurate, and meets quality standards.
 
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any, Tuple  # Updated for dashboard fields
 from datetime import datetime, timedelta
 from pydantic import BaseModel, field_validator, ValidationError, ConfigDict
 import json
 
 from config.settings import get_settings
 from config.logging_config import get_logger
-from data.data_sources import DataProvider
-from utils.exceptions import DataValidationError
+from data.data_sources import RealDataProvider
+from utils.exceptions import ValidationException
 from utils.helpers import get_utc_now
 
 logger = get_logger(__name__)
@@ -92,6 +92,11 @@ class CreditDataSchema(BaseModel):
     home_ownership: str
     loan_purpose: str
     
+    # Optional fields from dashboard
+    previous_defaults: Optional[int] = 0
+    open_credit_lines: Optional[int] = None
+    total_credit_lines: Optional[int] = None
+    
     @field_validator('loan_amount')
     @classmethod
     def validate_loan_amount(cls, v):
@@ -160,6 +165,27 @@ class CreditDataSchema(BaseModel):
         if v.upper() not in valid_purposes:
             raise ValueError(f"Invalid loan purpose: {v}")
         return v.upper()
+    
+    @field_validator('previous_defaults')
+    @classmethod
+    def validate_previous_defaults(cls, v):
+        if v is not None and not (0 <= v <= 10):
+            raise ValueError(f"Previous defaults {v} outside reasonable range [0, 10]")
+        return v
+    
+    @field_validator('open_credit_lines')
+    @classmethod
+    def validate_open_credit_lines(cls, v):
+        if v is not None and not (0 <= v <= 50):
+            raise ValueError(f"Open credit lines {v} outside reasonable range [0, 50]")
+        return v
+    
+    @field_validator('total_credit_lines')
+    @classmethod
+    def validate_total_credit_lines(cls, v):
+        if v is not None and not (0 <= v <= 100):
+            raise ValueError(f"Total credit lines {v} outside reasonable range [0, 100]")
+        return v
 
 
 class DataQualityValidator:

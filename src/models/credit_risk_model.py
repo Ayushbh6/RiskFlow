@@ -164,8 +164,19 @@ class ProbabilityOfDefaultModel:
             raise ValueError("Model must be trained before prediction")
         
         try:
+            # Handle missing columns (like default_probability that shouldn't be a feature)
+            X_copy = X.copy()
+            for feature in self.feature_names:
+                if feature not in X_copy.columns:
+                    if feature in ['default_probability', 'loss_given_default', 'target']:
+                        # These are target variables, not features - add as 0
+                        logger.warning(f"Target variable '{feature}' found in feature names, using 0")
+                        X_copy[feature] = 0
+                    else:
+                        raise ValueError(f"Missing required feature: {feature}")
+            
             # Ensure same feature order
-            X_aligned = X[self.feature_names]
+            X_aligned = X_copy[self.feature_names]
             return self.model.predict_proba(X_aligned)[:, 1]
         except Exception as e:
             logger.error(f"PD prediction failed: {str(e)}")

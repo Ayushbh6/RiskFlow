@@ -18,13 +18,13 @@ from datetime import datetime
 import json
 import logging
 
-from .credit_risk_model import CreditRiskModel
-from ..config.settings import get_settings
-from ..config.logging_config import get_logger
-from ..utils.database import DatabaseManager, get_db_session
-from ..utils.exceptions import ModelValidationError
-from ..data.preprocessing import CreditRiskFeatureEngineer
-from ..utils.helpers import get_utc_now
+from models.credit_risk_model import CreditRiskModel
+from config.settings import get_settings
+from config.logging_config import get_logger
+from utils.database import DatabaseManager, get_db_session
+from utils.exceptions import ModelValidationError
+from data.preprocessing import CreditRiskFeatureEngineer
+from utils.helpers import get_utc_now
 
 logger = get_logger(__name__)
 settings = get_settings()
